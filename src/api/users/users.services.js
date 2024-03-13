@@ -1,5 +1,6 @@
-const bcrypt = require('bcrypt');
-const { db } = require('../../utils/db');
+const bcrypt = require("bcrypt");
+const { db } = require("../../utils/db");
+const stripe = require("../../utils/stripe");
 
 function findUserByEmail(email) {
   return db.user.findUnique({
@@ -21,11 +22,26 @@ function findUserById(id) {
     where: {
       id,
     },
+    include: {
+      StripeCustomer: true
+    }
   });
+}
+
+function createStripeCustomer(email) {
+  return stripe.customers.create({
+    email: email,
+  })
+}
+
+function retrieveStripeCustomer(customerId) {
+  return stripe.customers.retrieve(customerId)
 }
 
 module.exports = {
   findUserByEmail,
   findUserById,
-  createUserByEmailAndPassword
+  createUserByEmailAndPassword,
+  createStripeCustomer,
+  retrieveStripeCustomer,
 };
