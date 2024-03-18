@@ -6,21 +6,22 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
 model User {
-  id             String           @id @unique @default(uuid())
-  email          String           @unique
-  password       String
-  refreshTokens  RefreshToken[]
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  StripeCustomer StripeCustomer?
-  StripeVendor   StripeVendor[]
-  Payment        Payment[]
-  Transaction    Transaction[]
+  id                     String                  @id @unique @default(uuid())
+  email                  String                  @unique
+  password               String
+  refreshTokens          RefreshToken[]
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  StripeCustomer         StripeCustomer?
+  // StripeVendor   StripeVendor[]
+  // Payment        Payment[]
+  // Transaction    Transaction[]
+  StripeConnectedAccount StripeConnectedAccount?
 }
 
 model RefreshToken {
@@ -40,12 +41,19 @@ model StripeCustomer {
   PaymentMethod PaymentMethod[]
 }
 
-model StripeVendor {
-  id            String          @id
-  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId        String          @unique
-  PaymentMethod PaymentMethod[]
+model StripeConnectedAccount {
+  id      String @id
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId  String @unique
+  balance Int    @default(0)
 }
+
+// model StripeVendor {
+//   id            String          @id
+//   user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+//   userId        String          @unique
+//   PaymentMethod PaymentMethod[]
+// }
 
 model PaymentMethod {
   id               String         @id
@@ -55,31 +63,31 @@ model PaymentMethod {
   stripeCustomerId String
   exp_year         Int
   last4            String
-  stripeVendor     StripeVendor?  @relation(fields: [stripeVendorId], references: [id], onDelete: Cascade)
-  stripeVendorId   String?
-  Payment          Payment[]
+  // stripeVendor     StripeVendor?  @relation(fields: [stripeVendorId], references: [id], onDelete: Cascade)
+  // stripeVendorId   String?
+  // Payment          Payment[]
 }
 
-model Payment {
-  id              String        @id
-  amount          Int
-  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId          String
-  paymentMethod   PaymentMethod @relation(fields: [paymentMethodId], references: [id], onDelete: Cascade)
-  paymentMethodId String
-}
+// model Payment {
+//   id              String        @id
+//   amount          Int
+//   user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+//   userId          String
+//   paymentMethod   PaymentMethod @relation(fields: [paymentMethodId], references: [id], onDelete: Cascade)
+//   paymentMethodId String
+// }
 
-model Transaction {
-  id          BigInt          @id @default(autoincrement())
-  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId      String
-  type        TransactionType @default(Credit)
-  amount      Int
-  createdAt   DateTime?       @default(now())
-  availableAt DateTime?       @default(now())
-}
+// model Transaction {
+//   id          BigInt          @id @default(autoincrement())
+//   user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+//   userId      String
+//   type        TransactionType @default(Credit)
+//   amount      Int
+//   createdAt   DateTime?       @default(now())
+//   availableAt DateTime?       @default(now())
+// }
 
-enum TransactionType {
-  Credit
-  Debit
-}
+// enum TransactionType {
+//   Credit
+//   Debit
+// }

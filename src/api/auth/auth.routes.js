@@ -1,40 +1,40 @@
-const express = require("express");
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
-const { v4: uuidv4 } = require("uuid");
+const express = require('express');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const { v4: uuidv4 } = require('uuid');
 const {
   findUserByEmail,
   createUserByEmailAndPassword,
   findUserById,
   createStripeCustomer,
-} = require("../users/users.services");
-const { generateTokens } = require("../../utils/jwt");
+} = require('../users/users.services');
+const { generateTokens } = require('../../utils/jwt');
 const {
   addRefreshTokenToWhitelist,
   findRefreshTokenById,
   deleteRefreshToken,
   revokeTokens,
-} = require("./auth.services");
-const { hashToken } = require("../../utils/hashToken");
+} = require('./auth.services');
+const { hashToken } = require('../../utils/hashToken');
 
 const router = express.Router();
 
-router.post("/register", async (req, res, next) => {
+router.post('/register', async (req, res, next) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
       res.status(400);
-      throw new Error("You must provide an email and a password.");
+      throw new Error('You must provide an email and a password.');
     }
 
     const existingUser = await findUserByEmail(email);
 
     if (existingUser) {
       res.status(400);
-      throw new Error("Email already in use.");
+      throw new Error('Email already in use.');
     }
     const stripeCustomer = await createStripeCustomer(email);
-    console.log(stripeCustomer)
+    console.log(stripeCustomer);
     const user = await createUserByEmailAndPassword({
       email,
       password,
@@ -57,25 +57,25 @@ router.post("/register", async (req, res, next) => {
   }
 });
 
-router.post("/login", async (req, res, next) => {
+router.post('/login', async (req, res, next) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
       res.status(400);
-      throw new Error("You must provide an email and a password.");
+      throw new Error('You must provide an email and a password.');
     }
 
     const existingUser = await findUserByEmail(email);
 
     if (!existingUser) {
       res.status(403);
-      throw new Error("Invalid login credentials.");
+      throw new Error('Invalid login credentials.');
     }
 
     const validPassword = await bcrypt.compare(password, existingUser.password);
     if (!validPassword) {
       res.status(403);
-      throw new Error("Invalid login credentials.");
+      throw new Error('Invalid login credentials.');
     }
 
     const jti = uuidv4();
@@ -95,31 +95,31 @@ router.post("/login", async (req, res, next) => {
   }
 });
 
-router.post("/refreshToken", async (req, res, next) => {
+router.post('/refreshToken', async (req, res, next) => {
   try {
     const { refreshToken } = req.body;
     if (!refreshToken) {
       res.status(400);
-      throw new Error("Missing refresh token.");
+      throw new Error('Missing refresh token.');
     }
     const payload = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
     const savedRefreshToken = await findRefreshTokenById(payload.jti);
 
     if (!savedRefreshToken || savedRefreshToken.revoked === true) {
       res.status(401);
-      throw new Error("Unauthorized");
+      throw new Error('Unauthorized');
     }
 
     const hashedToken = hashToken(refreshToken);
     if (hashedToken !== savedRefreshToken.hashedToken) {
       res.status(401);
-      throw new Error("Unauthorized");
+      throw new Error('Unauthorized');
     }
 
     const user = await findUserById(payload.userId);
     if (!user) {
       res.status(401);
-      throw new Error("Unauthorized");
+      throw new Error('Unauthorized');
     }
 
     await deleteRefreshToken(savedRefreshToken.id);
@@ -145,7 +145,7 @@ router.post("/refreshToken", async (req, res, next) => {
 
 // This endpoint is only for demo purpose.
 // Move this logic where you need to revoke the tokens( for ex, on password reset)
-router.post("/revokeRefreshTokens", async (req, res, next) => {
+router.post('/revokeRefreshTokens', async (req, res, next) => {
   try {
     const { userId } = req.body;
     await revokeTokens(userId);
