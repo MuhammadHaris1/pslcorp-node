@@ -22,6 +22,8 @@ model User {
   // Payment        Payment[]
   // Transaction    Transaction[]
   StripeConnectedAccount StripeConnectedAccount?
+  autoRechargeWith       Int                     @default(10)
+  balanceLowerThan       Int                     @default(10)
 }
 
 model RefreshToken {

@@ -2,12 +2,13 @@
 const express = require('express');
 const { isAuthenticated } = require('../../middlewares');
 const {
-  findUserById, retrieveStripeCustomer,
+  findUserById,
   getCards,
   getCardById,
   detachCard,
   getCardToRemove,
-  createStripeConnectedAccount
+  createStripeConnectedAccount,
+  retrieveStripeCustomer
 } = require('./users.services');
 const stripe = require('../../utils/stripe');
 const { db } = require('../../utils/db');
@@ -17,7 +18,18 @@ const router = express.Router();
 router.get('/profile', isAuthenticated, async (req, res, next) => {
   try {
     const { userId } = req.payload;
+    // const { email } = req.params;
     const user = await findUserById(userId);
+    // const customers = await stripe.customers.list({
+    //   email
+    // });
+    // const stripeCustomer = customers.data[0];
+    // if (!stripeCustomer) {
+    //   res.status(400);
+    //   throw new Error('No stripe customer found with this email');
+    // }
+    // const accounts = await stripe.accounts.list();
+    // console.log("stripeCustomer", stripeCustomer)
     const stripeCustomer = await retrieveStripeCustomer(user.StripeCustomer.id);
     const balance = await stripe.balance.retrieve({
       stripeAccount: user.StripeConnectedAccount.id,
@@ -25,10 +37,14 @@ router.get('/profile', isAuthenticated, async (req, res, next) => {
     const { available } = balance;
     // const totalBalance = available + pending;
     // const connectAcc = await stripe.accounts.retrieve(user.StripeConnectedAccount.id);
-    // console.log(balance)
+    // console.log(balance);
     delete user.password;
     res.json({
-      ...user, balance: stripeCustomer.balance, availableBalance: available[0].amount / 100
+      ...user,
+      balance: stripeCustomer.balance,
+      availableBalance: available[0].amount / 100
+      // stripeCustomer,
+      // accounts
     });
   } catch (err) {
     // console.log(err)
@@ -140,7 +156,7 @@ router.post('/add-funds', isAuthenticated, async (req, res) => {
     // Update the user's wallet balance accordingly (store it securely)
     res.send({ message: 'payment transfer successfully' });
   } catch (error) {
-    console.log(error);
+    // console.log(error);
     res.status(500).send({ error: 'Failed to add funds' });
   }
 });
@@ -151,6 +167,20 @@ router.post('/createStripeConnectAccount', isAuthenticated, async (req, res, nex
     const { countryIsoCode, refreshUrl, returnUrl } = req.body;
     const url = await createStripeConnectedAccount(userId, countryIsoCode, refreshUrl, returnUrl);
     return res.json({ url });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/getBillingHistory', isAuthenticated, async (req, res, next) => {
+  try {
+    const { userId } = req.payload;
+    const user = await findUserById(userId);
+    const invoices = await stripe.invoices.list({
+      customer: user.StripeCustomer.id
+    });
+
+    res.send({ data: invoices.data });
   } catch (error) {
     next(error);
   }
