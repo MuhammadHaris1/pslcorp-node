@@ -152,7 +152,7 @@ async function createStripeConnectedAccount(userId, countryIsoCode, refreshUrl, 
     }
     if (!flag) {
       account = await stripe.accounts.create({
-        type: 'standard',
+        type: 'express',
         country: countryIsoCode,
         business_type: 'individual'
       });

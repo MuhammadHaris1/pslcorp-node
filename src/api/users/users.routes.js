@@ -186,4 +186,143 @@ router.get('/getBillingHistory', isAuthenticated, async (req, res, next) => {
   }
 });
 
+router.post('/updateAutoRechargeWith', isAuthenticated, async (req, res, next) => {
+  try {
+    const { userId } = req.payload;
+    const { amount } = req.body;
+    const user = await findUserById(userId);
+    if (!amount) {
+      throw new Error("Amount is required.")
+    }
+    if (!user) {
+      throw new Error(" is required.")
+    }
+    
+    const updatedUser = await db.user.update({
+      where: {
+        id: userId
+      },
+      data: {
+        autoRechargeWith: Number(amount)
+      }
+    })
+
+    res.send({ data: updatedUser });
+  } catch (error) {
+    // console.log(error)
+    next(error);
+  }
+});
+
+router.post('/updateBalanceLowerThan', isAuthenticated, async (req, res, next) => {
+  try {
+    const { userId } = req.payload;
+    const { amount } = req.body;
+    const user = await findUserById(userId);
+    if (!amount) {
+      throw new Error("Amount is required.")
+    }
+    if (!user) {
+      throw new Error(" is required.")
+    }
+    
+    const updatedUser = await db.user.update({
+      where: {
+        id: userId
+      },
+      data: {
+        balanceLowerThan: Number(amount)
+      }
+    })
+
+    res.send({ data: updatedUser });
+  } catch (error) {
+    // console.log(error)
+    next(error);
+  }
+});
+
+router.post("/createChargeFromBalance", isAuthenticated, async (req, res, next) => {
+  try {
+    const { userId } = req.payload;
+    const { amount } = req.body;
+    const account = await stripe.accounts.retrieve();
+    
+
+    const user = await findUserById(userId);
+    if (!amount) {
+      throw new Error("Amount is required.")
+    }
+    if (!user) {
+      throw new Error(" is required.")
+    }
+
+    // return res.json({account})
+    const charge = await stripe.charges.create({
+      amount: amount * 100, 
+      currency: 'usd',
+      source: user.StripeConnectedAccount.id,
+      description: 'Direct charge from connected account to platform',
+    });
+
+    
+    // if (charge.status === 'succeeded') {
+    //   const account = await stripe.accounts.retrieve();
+    //   // Transfer the charged amount to your platform's Stripe account
+    //   const transfer = await stripe.transfers.create({
+    //     amount: amount * 100,
+    //     currency: 'usd',
+    //     destination: account.id, // ID of your platform's Stripe account
+    //     source_transaction: charge.id, // ID of the charge on the connected account
+    //   });
+    
+    //   // Handle the transfer response
+    //   if (transfer.status === 'pending') {
+    //     console.log('Direct charge and transfer successful!');
+    //   } else {
+    //     console.log('Direct charge successful, but transfer failed.');
+    //   }
+    // } else {
+    //   console.log('Direct charge failed.');
+    // }
+
+    const balance = await stripe.balance.retrieve({
+      stripeAccount: user.StripeConnectedAccount.id,
+    });
+    const { available } = balance;
+    const availableBalance = available[0].amount / 100
+
+    if (availableBalance < user.balanceLowerThan) {
+      const customer = await stripe.customers.retrieve(user.StripeCustomer.id, {
+        expand: ['invoice_settings']
+      });
+      const paymentMethodId = customer.invoice_settings.default_payment_method;
+      // return res.json({ customer })
+      if (!paymentMethodId) {
+        res.status(400);
+        throw new Error('No default payment method is selected');
+      }
+      const intent = await stripe.paymentIntents.create({
+        amount: Number(user.autoRechargeWith) * 100,
+        currency: 'usd', // Replace with your desired currency
+        customer: user.StripeCustomer.id,
+        payment_method: paymentMethodId,
+        payment_method_types: ['card'], // Optional: Allow payment from wallet balance
+        confirm: true,
+      });
+      await stripe.transfers.create({
+        amount: intent.amount,
+        currency: intent.currency,
+        destination: user.StripeConnectedAccount.id
+      });
+    }
+    res.send({
+      message: "charge created",
+      charge
+    })
+  } catch (error) {
+    next(error)
+  }
+})
+
 module.exports = router;
