@@ -32,7 +32,7 @@ router.get('/profile', isAuthenticated, async (req, res, next) => {
     // console.log("stripeCustomer", stripeCustomer)
     const stripeCustomer = await retrieveStripeCustomer(user.StripeCustomer.id);
     const balance = await stripe.balance.retrieve({
-      stripeAccount: user.StripeConnectedAccount.id,
+      stripeAccount: user?.StripeConnectedAccount?.id,
     });
     const { available } = balance;
     // const totalBalance = available + pending;
@@ -41,8 +41,8 @@ router.get('/profile', isAuthenticated, async (req, res, next) => {
     delete user.password;
     res.json({
       ...user,
-      balance: stripeCustomer.balance,
-      availableBalance: available[0].amount / 100
+      balance: stripeCustomer?.balance,
+      availableBalance: user?.StripeConnectedAccount?.id ? available?.[0]?.amount / 100 : 0
       // stripeCustomer,
       // accounts
     });
@@ -176,11 +176,39 @@ router.get('/getBillingHistory', isAuthenticated, async (req, res, next) => {
   try {
     const { userId } = req.payload;
     const user = await findUserById(userId);
-    const invoices = await stripe.invoices.list({
+    const { data } = await stripe.paymentIntents.list({
       customer: user.StripeCustomer.id
     });
 
-    res.send({ data: invoices.data });
+    const invoices = []
+
+    for (let index = 0; index < data.length; index++) {
+      const val = data[index];
+      const paymentMethod = await stripe.paymentMethods.retrieve(val.payment_method)
+      const invoice = {
+        id: val.id,
+        status: val.status,
+        amount: val.amount / 100,
+        created: val.created,
+        currency: val.currency,
+        // paymentMethod,
+        card: paymentMethod.card
+      }
+      invoices.push(invoice)
+    }
+    // const invoices = data.map((val) => {
+    //   // const paymentMethod = await stripe.paymentMethod.retrieve(val.payment_method)
+    //   return ({
+    //     id: val.id,
+    //     status: val.status,
+    //     amount: val.amount / 100,
+    //     created: val.created,
+    //     currency: val.currency,
+    //     // paymentMethod
+    //   })
+    // })
+
+    res.send({ data: invoices, status: true });
   } catch (error) {
     next(error);
   }
@@ -197,7 +225,7 @@ router.post('/updateAutoRechargeWith', isAuthenticated, async (req, res, next) =
     if (!user) {
       throw new Error(" is required.")
     }
-    
+
     const updatedUser = await db.user.update({
       where: {
         id: userId
@@ -225,7 +253,7 @@ router.post('/updateBalanceLowerThan', isAuthenticated, async (req, res, next) =
     if (!user) {
       throw new Error(" is required.")
     }
-    
+
     const updatedUser = await db.user.update({
       where: {
         id: userId
@@ -247,7 +275,7 @@ router.post("/createChargeFromBalance", isAuthenticated, async (req, res, next) 
     const { userId } = req.payload;
     const { amount } = req.body;
     const account = await stripe.accounts.retrieve();
-    
+
 
     const user = await findUserById(userId);
     if (!amount) {
@@ -259,13 +287,13 @@ router.post("/createChargeFromBalance", isAuthenticated, async (req, res, next) 
 
     // return res.json({account})
     const charge = await stripe.charges.create({
-      amount: amount * 100, 
+      amount: amount * 100,
       currency: 'usd',
       source: user.StripeConnectedAccount.id,
       description: 'Direct charge from connected account to platform',
     });
 
-    
+
     // if (charge.status === 'succeeded') {
     //   const account = await stripe.accounts.retrieve();
     //   // Transfer the charged amount to your platform's Stripe account
@@ -275,7 +303,7 @@ router.post("/createChargeFromBalance", isAuthenticated, async (req, res, next) 
     //     destination: account.id, // ID of your platform's Stripe account
     //     source_transaction: charge.id, // ID of the charge on the connected account
     //   });
-    
+
     //   // Handle the transfer response
     //   if (transfer.status === 'pending') {
     //     console.log('Direct charge and transfer successful!');

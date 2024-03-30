@@ -14,6 +14,7 @@ const {
   findRefreshTokenById,
   deleteRefreshToken,
   revokeTokens,
+  checkEmail,
 } = require('./auth.services');
 const { hashToken } = require('../../utils/hashToken');
 
@@ -154,5 +155,20 @@ router.post('/revokeRefreshTokens', async (req, res, next) => {
     next(err);
   }
 });
+
+router.get("/checkEmail/:email", async (req,res,next) => {
+  try {
+      const { email } = req.params;
+      const user = await checkEmail(email);
+
+      if (user) {
+        return res.json({ emailExist: true });
+      } else {
+        return res.json({ emailExist: false });
+      }
+  } catch (error) {
+    next(error)
+  }
+})
 
 module.exports = router;

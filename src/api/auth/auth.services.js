@@ -41,9 +41,18 @@ function revokeTokens(userId) {
   });
 }
 
+function checkEmail(email) {
+  return db.user.findFirst({
+    where: {
+      email
+    }
+  })
+}
+
 module.exports = {
   addRefreshTokenToWhitelist,
   findRefreshTokenById,
   deleteRefreshToken,
-  revokeTokens
+  revokeTokens,
+  checkEmail
 };

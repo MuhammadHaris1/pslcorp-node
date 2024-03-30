@@ -29,10 +29,18 @@ function findUserById(id) {
   });
 }
 
-function createStripeCustomer(email) {
-  return stripe.customers.create({
-    email,
+async function createStripeCustomer(email) {
+  const customers = await stripe.customers.list({
+    email
   });
+  const stripeCustomer = customers.data[0];
+  if (stripeCustomer) {
+    return stripeCustomer
+  } else {
+    return stripe.customers.create({
+      email,
+    });
+  }
 }
 
 function retrieveStripeCustomer(customerId) {
