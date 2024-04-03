@@ -82,6 +82,32 @@ router.post('/addCard', isAuthenticated, async (req, res, next) => {
   }
 });
 
+router.post("/makeCardPrimary", isAuthenticated, async (req, res, next) =>{ 
+  try {
+    const { paymentMethodId } = req.body;
+    const { userId } = req.payload;
+    const user = await findUserById(userId);
+    if (!user) {
+      res.status(400);
+      throw new Error('User not found.');
+    }
+    if (!paymentMethodId) {
+      res.status(400);
+      throw new Error('paymentMethodId is required.');
+    }
+
+    await stripe.customers.update(user.StripeCustomer.id, {
+      invoice_settings: {
+        default_payment_method: paymentMethodId,
+      },
+    });
+
+    return res.json({ message: "Make card primary successfull" })
+  } catch (error) {
+    next(err);
+  }
+})
+
 router.post('/removeCard', isAuthenticated, async (req, res, next) => {
   try {
     const { customerId, cardId } = req.body; // Destructure request data
@@ -156,7 +182,7 @@ router.post('/add-funds', isAuthenticated, async (req, res) => {
     // Update the user's wallet balance accordingly (store it securely)
     res.send({ message: 'payment transfer successfully' });
   } catch (error) {
-    // console.log(error);
+    console.log(error);
     res.status(500).send({ error: 'Failed to add funds' });
   }
 });
