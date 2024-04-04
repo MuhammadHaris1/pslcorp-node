@@ -110,10 +110,20 @@ router.post("/makeCardPrimary", isAuthenticated, async (req, res, next) =>{
 
 router.post('/removeCard', isAuthenticated, async (req, res, next) => {
   try {
-    const { customerId, cardId } = req.body; // Destructure request data
+    const { paymentMethodId } = req.body;
+    const { userId } = req.payload;
+    const user = await findUserById(userId);
+    if (!user) {
+      res.status(400);
+      throw new Error('User not found.');
+    }
+    if (!paymentMethodId) {
+      res.status(400);
+      throw new Error('paymentMethodId is required.');
+    }
 
-    const paymentMethodToRemove = await getCardToRemove(customerId, cardId);
-    await detachCard(paymentMethodToRemove.id);
+    // const paymentMethodToRemove = await getCardToRemove(customerId, cardId);
+    await detachCard(paymentMethodId);
 
     // Update user interface or database to reflect card removal
     res.send({ message: 'Card successfully removed!' });

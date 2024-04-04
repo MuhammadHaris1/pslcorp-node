@@ -53,28 +53,42 @@ async function getCards(customerId) {
     //   expand: ['default_payment_method', 'payment_methods']
     // });
     const customer = await stripe.customers.retrieve(customerId)
-    const pm = await stripe.paymentMethods.retrieve(customer.invoice_settings.default_payment_method)
-    const obj = {
-      id: pm.id,
-      brand: pm.card.brand,
-      last4: pm.card.last4, // Truncated for security
-      exp_month: pm.card.exp_month,
-      exp_year: pm.card.exp_year,
-      name: pm.billing_details.name,
-      isPrimary: true
-    }
+    
     const paymentMethods = await stripe.customers.listPaymentMethods(customerId);
     // console.log('paymentMethods', paymentMethods)
     // Return an array containing basic card details (without sensitive information)
-    return [obj, ...paymentMethods.data.map((pm) => ({
-      id: pm.id,
-      brand: pm.card.brand,
-      last4: pm.card.last4, // Truncated for security
-      exp_month: pm.card.exp_month,
-      exp_year: pm.card.exp_year,
-      name: pm.billing_details.name,
-      isPrimary: customer.invoice_settings.default_payment_method === pm.id
-    })).filter(v => customer.invoice_settings.default_payment_method !== v.id)];
+    if (customer?.invoice_settings?.default_payment_method) {
+      const pm = await stripe.paymentMethods.retrieve(customer?.invoice_settings?.default_payment_method)
+
+      const obj = {
+        id: pm.id,
+        brand: pm.card.brand,
+        last4: pm.card.last4, // Truncated for security
+        exp_month: pm.card.exp_month,
+        exp_year: pm.card.exp_year,
+        name: pm.billing_details.name,
+        isPrimary: true
+      }
+      return [obj, ...paymentMethods.data.map((pm) => ({
+        id: pm.id,
+        brand: pm.card.brand,
+        last4: pm.card.last4, // Truncated for security
+        exp_month: pm.card.exp_month,
+        exp_year: pm.card.exp_year,
+        name: pm.billing_details.name,
+        isPrimary: customer.invoice_settings.default_payment_method === pm.id
+      })).filter(v => customer.invoice_settings.default_payment_method !== v.id)];
+    } else {
+      return [...paymentMethods.data.map((pm) => ({
+        id: pm.id,
+        brand: pm.card.brand,
+        last4: pm.card.last4, // Truncated for security
+        exp_month: pm.card.exp_month,
+        exp_year: pm.card.exp_year,
+        name: pm.billing_details.name,
+        isPrimary: customer.invoice_settings.default_payment_method === pm.id
+      })).filter(v => customer.invoice_settings.default_payment_method !== v.id)];
+    }
   } catch (error) {
     console.error(error);
     throw new Error('Failed to list cards');
