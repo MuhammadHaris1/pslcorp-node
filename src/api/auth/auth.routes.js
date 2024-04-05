@@ -17,6 +17,8 @@ const {
   checkEmail,
 } = require('./auth.services');
 const { hashToken } = require('../../utils/hashToken');
+const nodemailer = require("nodemailer");
+const { db } = require('../../utils/db');
 
 const router = express.Router();
 
@@ -156,16 +158,103 @@ router.post('/revokeRefreshTokens', async (req, res, next) => {
   }
 });
 
-router.get("/checkEmail/:email", async (req,res,next) => {
+router.get("/checkEmail/:email", async (req, res, next) => {
   try {
-      const { email } = req.params;
-      const user = await checkEmail(email);
+    const { email } = req.params;
+    const user = await checkEmail(email);
 
-      if (user) {
-        return res.json({ emailExist: true });
-      } else {
-        return res.json({ emailExist: false });
+    if (user) {
+      return res.json({ emailExist: true });
+    } else {
+      return res.json({ emailExist: false });
+    }
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.get("/forgotPassword/:email", async (req, res, next) => {
+  try {
+    const { email } = req.params;
+    const user = await checkEmail(email);
+
+    if (!user) {
+      return res.json({ status: false, message: "No user found with this email please register a new account" });
+    }
+
+    const otp = Math.floor(100 + Math.random() * 9000)
+
+    let transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: "hnhtechsolutionsemail@gmail.com",
+        pass: "xownivngwllubphn"
       }
+    });
+
+    await transporter.sendMail({
+      from: '"PSL Corp Wallet 👻" <hnhtechsolutionsemail@ethereal.email>', // sender address
+      to: email, // list of receivers
+      subject: `OTP code ${otp}`, // Subject line
+      text: "OTP CODE", // plain text body
+      html: `<div style={background:"red"}>
+      <h1>PSL Corp Wallet</h1>
+     <p>Your OTP code is ${otp}</p>
+    </div>`, // html body
+    });
+
+    const updatedUser = await db.user.update({
+      where: {
+        id: user.id
+      },
+      data: {
+        otp
+      }
+    });
+
+    delete updatedUser.password
+
+    return res.json({ status: true, message: "Otp send successfully.", user: updatedUser });
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.post("/changePassword", async (req, res, next) => {
+  try {
+    const { email, password, confirmPassword, otp } = req.body;
+    const user = await checkEmail(email);
+
+    if (!user) {
+      return res.json({ status: false, message: "No user found with this email please register a new account" });
+    }
+
+    if (!email || !password || !confirmPassword || !otp) {
+      return res.json({ status: false, message: "email, password, confirmPassword, otp is required" })
+    }
+
+    if (user.otp != otp) {
+      return res.json({ status: false, message: "OTP not matched" })
+    }
+
+    if (password !== confirmPassword) {
+      return res.json({ status: false, message: "password not matched with the confirmPassword" })
+    }
+
+    const newPass = bcrypt.hashSync(password, 12);
+
+    const updatedUser = await db.user.update({
+      where: {
+        id: user.id
+      },
+      data: {
+        password: newPass
+      }
+    })
+
+    delete updatedUser.password
+
+    return res.json({ status: true, message: "password change successfully.", user: updatedUser });
   } catch (error) {
     next(error)
   }

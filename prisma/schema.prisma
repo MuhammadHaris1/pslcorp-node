@@ -18,6 +18,7 @@ model User {
   createdAt              DateTime                @default(now())
   updatedAt              DateTime                @updatedAt
   StripeCustomer         StripeCustomer?
+  otp                    Int?
   // StripeVendor   StripeVendor[]
   // Payment        Payment[]
   // Transaction    Transaction[]
